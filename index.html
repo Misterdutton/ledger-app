@@ -146,6 +146,24 @@ table{border-collapse:collapse;width:100%;font-size:.85rem}
 th,td{padding:4px 8px;text-align:right;border-bottom:1px solid var(--line)}
 th:first-child,td:first-child{text-align:left}
 
+.quick{display:grid;gap:6px}
+.quick .chips{gap:8px}
+.qbtn{border:1px solid var(--line-2);background:var(--bg);border-radius:999px;padding:5px 12px;font-size:.88rem;display:inline-flex;gap:6px;align-items:baseline}
+.qbtn:hover{border-color:var(--accent)}
+.qbtn b{font-weight:600}
+.check{display:flex;align-items:center;gap:8px;font-size:.9rem;cursor:pointer}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+.formbtns{display:flex;gap:8px}
+.formbtns .primary{flex:1}
+.tx .meta.editable{border:0;background:transparent;text-align:left;padding:2px 0;cursor:pointer;border-radius:6px}
+.tx .meta.editable:hover div:first-child{color:var(--accent)}
+.rtag{font-size:.7rem;color:var(--accent);border:1px solid currentColor;border-radius:4px;padding:0 4px;margin-left:4px;white-space:nowrap}
+.rlist{display:grid;gap:2px;margin:0;padding:0;list-style:none}
+.rlist li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.rlist li:last-child{border-bottom:0}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);border-radius:10px;padding:10px 14px;display:flex;gap:14px;align-items:center;z-index:20;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.toast button{border:0;background:transparent;color:var(--accent-soft);font-weight:600;text-decoration:underline;padding:0}
+.editing-form{outline:2px solid var(--accent);outline-offset:6px;border-radius:6px}
 @media (max-width:900px){.grid2{grid-template-columns:minmax(0,1fr)}.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:420px){.tile .val{font-size:1.3rem}.row2{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:no-preference){.fill,.seg{transition:width .3s ease}}
@@ -215,6 +233,10 @@ th:first-child,td:first-child{text-align:left}
 
     <section class="panel" aria-labelledby="h-add">
       <h2 id="h-add">บันทึกรายการ</h2>
+      <div class="quick" id="quickBox" hidden>
+        <span class="small muted">บันทึกด่วน · แตะเพื่อบันทึกเป็นรายการวันนี้</span>
+        <div class="chips" id="quick"></div>
+      </div>
       <form class="entry" id="entry" novalidate>
         <div class="seg-ctl" role="radiogroup" aria-label="ประเภท">
           <input type="radio" name="kind" id="kExp" value="exp" checked><label for="kExp">รายจ่าย</label>
@@ -230,15 +252,16 @@ th:first-child,td:first-child{text-align:left}
           <input type="radio" name="need" id="nNo" value="0"><label for="nNo">ไม่จำเป็น</label>
         </div>
         <div class="field"><label for="note">บันทึกช่วยจำ</label><input id="note" type="text" maxlength="80" placeholder="เช่น ข้าวกลางวัน, ค่าไฟเดือนนี้"></div>
+        <label class="check" id="repeatRow"><input type="checkbox" id="repeat"> ทำซ้ำทุกเดือน <span class="muted small" id="repeatHint"></span></label>
         <p class="err" id="formErr" hidden></p>
-        <button class="btn primary" type="submit">บันทึก</button>
+        <div class="formbtns"><button class="btn primary" type="submit" id="saveBtn">บันทึก</button><button class="btn" type="button" id="cancelEdit" hidden>ยกเลิก</button></div>
       </form>
     </section>
   </div>
 
   <section class="panel" aria-labelledby="h-list">
     <div class="panel-h">
-      <h2 id="h-list">รายการของเดือน</h2>
+      <div><h2 id="h-list">รายการของเดือน</h2><span class="small muted">แตะที่รายการเพื่อแก้ไข</span></div>
       <div class="chips" role="group" aria-label="กรองรายการ">
         <button class="chip" type="button" data-f="all" aria-pressed="true">ทั้งหมด</button>
         <button class="chip" type="button" data-f="inc" aria-pressed="false">รายรับ</button>
@@ -248,13 +271,20 @@ th:first-child,td:first-child{text-align:left}
     </div>
     <div class="days" id="days"></div>
   </section>
+  <section class="panel" aria-labelledby="h-rec">
+    <div class="panel-h"><h2 id="h-rec">รายการประจำทุกเดือน</h2></div>
+    <ul class="rlist" id="rlist"></ul>
+  </section>
+
   <section class="panel" aria-labelledby="h-backup">
     <div class="panel-h"><h2 id="h-backup">สำรองและกู้คืนข้อมูล</h2></div>
     <p class="small muted" style="margin:0">ข้อมูลเก็บอยู่ในมือถือเครื่องนี้เท่านั้น ถ้าลบแอป ล้างข้อมูลเบราว์เซอร์ หรือเปลี่ยนเครื่อง ข้อมูลจะหาย ควรกดสำรองข้อมูลเป็นประจำ แล้วใช้ไฟล์นั้นกู้คืนในเครื่องใหม่</p>
     <div class="chips"><button class="btn primary" type="button" id="exportBtn">สำรองข้อมูล (.json)</button><label class="btn" for="importFile">กู้คืนจากไฟล์</label><input type="file" id="importFile" accept="application/json,.json" hidden></div>
-    <p class="small muted" style="margin:0">เวอร์ชัน 1.1 · อัปเดต 3 พ.ย. 2569</p>
+    <p class="small muted" style="margin:0">เวอร์ชัน 1.2 · อัปเดต 3 พ.ย. 2569</p>
   </section>
 </div>
+
+<div class="toast" id="toast" role="status" hidden><span id="toastMsg"></span><button type="button" id="toastUndo">เลิกทำ</button></div>
 
 <script>
 (() => {
@@ -278,7 +308,7 @@ const shiftYm = (ym,k) => { let [y,m]=ym.split('-').map(Number); m+=k; while(m<1
 const ymLabel = (ym,short) => new Date(ym+'-15T12:00:00').toLocaleDateString('th-TH',short?{month:'short'}:{month:'long',year:'numeric'});
 const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-const S = { tx:[], budgets:{}, goalPct:20, example:false, store:'none', ym: ymOf(todayStr()), filter:'all', editing:false };
+const S = { tx:[], budgets:{}, goalPct:20, recurring:[], skipped:[], example:false, store:'none', ym: ymOf(todayStr()), filter:'all', editing:false, editId:null };
 
 /* ---------- example data (never saved) ---------- */
 function exampleData(){
@@ -305,26 +335,44 @@ function exampleData(){
 /* ---------- storage (this device only) ---------- */
 const LS='ledger-th-v1';
 function lsLoad(){ try{ return JSON.parse(localStorage.getItem(LS)||'null'); }catch(e){ return null; } }
-function lsSave(){ try{ localStorage.setItem(LS, JSON.stringify({started:true,tx:S.tx,budgets:S.budgets,goalPct:S.goalPct})); return true; }catch(e){ setStatus('บันทึกไม่สำเร็จ พื้นที่ในเครื่องอาจเต็ม'); return false; } }
+function lsSave(){ try{ localStorage.setItem(LS, JSON.stringify({started:true,tx:S.tx,budgets:S.budgets,goalPct:S.goalPct,recurring:S.recurring,skipped:S.skipped})); return true; }catch(e){ setStatus('บันทึกไม่สำเร็จ พื้นที่ในเครื่องอาจเต็ม'); return false; } }
 function setStatus(t){ $('status').textContent=t; }
 function enterExample(){ const ex=exampleData(); S.tx=ex.tx; S.budgets=ex.budgets; S.goalPct=ex.goalPct; S.example=true; }
-function leaveExample(){ if(!S.example) return; S.example=false; S.tx=[]; S.budgets={}; S.goalPct=20; }
+function leaveExample(){ if(!S.example) return; S.example=false; S.tx=[]; S.budgets={}; S.goalPct=20; S.recurring=[]; S.skipped=[]; }
 function init(){
   S.store='local';
   const v=lsLoad();
-  if(v && v.started){ S.tx=v.tx||[]; S.budgets=v.budgets||{}; S.goalPct=v.goalPct??20; }
+  if(v && v.started){ S.tx=v.tx||[]; S.budgets=v.budgets||{}; S.goalPct=v.goalPct??20; S.recurring=v.recurring||[]; S.skipped=v.skipped||[]; }
   else enterExample();
-  setStatus('เก็บไว้ในเครื่องนี้ · ใช้งานได้แม้ไม่มีอินเทอร์เน็ต');
+  const n=applyRecurring();
+  setStatus(n?`ลงรายการประจำให้อัตโนมัติ ${n} รายการ`:'เก็บไว้ในเครื่องนี้ · ใช้งานได้แม้ไม่มีอินเทอร์เน็ต');
   render();
   if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
 }
 async function saveTx(t){ S.tx.push(t); if(!lsSave()){ S.tx.pop(); throw {code:'quota_exceeded'}; } render(); }
-async function deleteTx(id){ const before=S.tx; S.tx=S.tx.filter(t=>t.id!==id); if(!lsSave()){ S.tx=before; throw {code:'save_failed'}; } render(); }
+async function deleteTx(id){ const before=S.tx, beforeSk=S.skipped; S.tx=S.tx.filter(t=>t.id!==id); if(id.startsWith('r-')) S.skipped=[...S.skipped,id];
+  if(!lsSave()){ S.tx=before; S.skipped=beforeSk; throw {code:'save_failed'}; } render(); }
+
+/* ---------- recurring ---------- */
+const daysIn = ym => { const [y,m]=ym.split('-').map(Number); return new Date(y,m,0).getDate(); };
+function applyRecurring(){
+  if(S.example || !S.recurring.length) return 0;
+  const today=todayStr(), cur=ymOf(today); const have=new Set(S.tx.map(t=>t.id)), skip=new Set(S.skipped); let added=0;
+  for(const r of S.recurring){
+    for(let ym=r.start, guard=0; ym<=cur && guard<240; ym=shiftYm(ym,1), guard++){
+      const id=`r-${r.id}-${ym}`; if(have.has(id)||skip.has(id)) continue;
+      const date=`${ym}-${pad(Math.min(r.day,daysIn(ym)))}`; if(date>today) continue;
+      S.tx.push({id,date,kind:r.kind,cat:r.cat,amount:r.amount,need:r.need,note:r.note,rec:r.id,createdAt:new Date().toISOString()}); added++;
+    }
+  }
+  if(added && !lsSave()){ return 0; }
+  return added;
+}
 function saveProfile(){ lsSave(); }
 
 /* ---------- backup ---------- */
 async function exportData(){
-  const blob=new Blob([JSON.stringify({app:'ledger-th',version:1,exportedAt:new Date().toISOString(),tx:S.tx,budgets:S.budgets,goalPct:S.goalPct},null,1)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({app:'ledger-th',version:1,exportedAt:new Date().toISOString(),tx:S.tx,budgets:S.budgets,goalPct:S.goalPct,recurring:S.recurring,skipped:S.skipped},null,1)],{type:'application/json'});
   const name=`ledger-backup-${todayStr()}.json`;
   try{ const f=new File([blob],name,{type:'application/json'});
     if(navigator.canShare&&navigator.canShare({files:[f]})&&/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)){ await navigator.share({files:[f],title:'สำรองข้อมูลบัญชีเงิน'}); setStatus('สำรองข้อมูลแล้ว เก็บไฟล์ไว้ในที่ปลอดภัย'); return; }
@@ -341,9 +389,12 @@ function importData(file){
       const ok=d.tx.filter(t=>t&&t.id&&/^\d{4}-\d{2}-\d{2}$/.test(t.date)&&(t.kind==='inc'||t.kind==='exp')&&+t.amount>0);
       const cats=new Set([...EXP,...INC].map(c=>c.id));
       S.example=false;
-      S.tx=ok.map(t=>({id:String(t.id),date:t.date,kind:t.kind,cat:cats.has(t.cat)?t.cat:(t.kind==='inc'?'gift':'other'),amount:Math.round(+t.amount*100)/100,need:t.kind==='inc'?true:!!t.need,note:String(t.note||'').slice(0,80),createdAt:t.createdAt||''}));
+      S.tx=ok.map(t=>({id:String(t.id),rec:t.rec?String(t.rec):undefined,date:t.date,kind:t.kind,cat:cats.has(t.cat)?t.cat:(t.kind==='inc'?'gift':'other'),amount:Math.round(+t.amount*100)/100,need:t.kind==='inc'?true:!!t.need,note:String(t.note||'').slice(0,80),createdAt:t.createdAt||''}));
       S.budgets={}; if(d.budgets&&typeof d.budgets==='object') for(const c of EXP){ const v=+d.budgets[c.id]; if(v>0) S.budgets[c.id]=v; }
       S.goalPct=Math.min(90,Math.max(0,+d.goalPct||20));
+      S.recurring=(Array.isArray(d.recurring)?d.recurring:[]).filter(r=>r&&r.id&&/^\d{4}-\d{2}$/.test(r.start)&&(r.kind==='inc'||r.kind==='exp')&&+r.amount>0&&+r.day>=1&&+r.day<=31)
+        .map(r=>({id:String(r.id).replace(/[^a-z0-9]/gi,'').slice(0,20)||'x',start:r.start,day:Math.round(+r.day),kind:r.kind,cat:cats.has(r.cat)?r.cat:(r.kind==='inc'?'gift':'other'),amount:Math.round(+r.amount*100)/100,need:r.kind==='inc'?true:!!r.need,note:String(r.note||'').slice(0,80)}));
+      S.skipped=(Array.isArray(d.skipped)?d.skipped:[]).filter(x=>typeof x==='string');
       lsSave(); render(); setStatus(`กู้คืนแล้ว ${ok.length} รายการ`);
     }catch(e){ setStatus('ไฟล์นี้ไม่ใช่ไฟล์สำรองของแอปนี้ ลองเลือกไฟล์ .json ที่ได้จากปุ่ม “สำรองข้อมูล”'); } };
   r.readAsText(file);
@@ -377,7 +428,7 @@ function render(){
   $('tExpSub').textContent=delta(m.exp,prev.exp);
   $('tBalSub').textContent= m.inc? `ออมได้ ${Math.round(m.bal/m.inc*100)}% ของรายรับ` : 'ยังไม่มีรายรับเดือนนี้';
   $('tWantSub').textContent= m.exp? `${Math.round(m.want/m.exp*100)}% ของรายจ่ายทั้งหมด` : 'ยังไม่มีรายจ่าย';
-  renderTrend(); renderInsight(m); renderRule(m); renderBudget(m); renderList(m);
+  renderTrend(); renderInsight(m); renderRule(m); renderBudget(m); renderList(m); renderQuick(); renderRecurring();
   if(document.activeElement!==$('goalPct')) $('goalPct').value=S.goalPct;
 }
 
@@ -494,11 +545,84 @@ function renderList(m){
     return `<div class="day"><h3><span>${dl}</span><span class="num">${net>=0?'+':''}${fmt(net)}</span></h3>${ts.map(t=>{
       const color=t.kind==='inc'?'var(--inc)':(t.need?'var(--need)':'var(--want)');
       const sub=t.kind==='inc'?'รายรับ':(t.need?'จำเป็น':'ไม่จำเป็น');
-      return `<div class="tx"><i class="dot" style="background:${color}"></i><div class="meta"><div>${esc(t.note||catName(t.cat))}</div><div>${esc(catName(t.cat))} · ${sub}</div></div>
+      const inner=`<div>${esc(t.note||catName(t.cat))}${t.rec?'<span class="rtag">↻ ประจำ</span>':''}</div><div>${esc(catName(t.cat))} · ${sub}</div>`;
+      const meta=S.example?`<div class="meta">${inner}</div>`:`<button type="button" class="meta editable" data-edit="${esc(t.id)}" aria-label="แก้ไขรายการ ${esc(t.note||catName(t.cat))}">${inner}</button>`;
+      return `<div class="tx"><i class="dot" style="background:${color}"></i>${meta}
         <span class="amt num ${t.kind==='inc'?'pos':''}">${t.kind==='inc'?'+':'−'}${bahtD.format(t.amount)}</span>
         ${S.example?'':`<button class="del${pendingDel===t.id?' confirm':''}" type="button" data-id="${esc(t.id)}">${pendingDel===t.id?'ยืนยันลบ':'ลบ'}</button>`}</div>`;}).join('')}</div>`;
   }).join('');
 }
+
+/* ---------- quick add ---------- */
+function quickItems(){
+  const recent=S.tx.filter(t=>t.kind==='exp'&&!t.rec).sort((a,b)=>b.date.localeCompare(a.date)||String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0,300);
+  const map=new Map();
+  for(const t of recent){ const label=(t.note||catName(t.cat)).trim(); const key=label+'|'+t.cat;
+    let q=map.get(key); if(!q){ q={label,cat:t.cat,amount:t.amount,need:!!t.need,count:0}; map.set(key,q); } q.count++; }
+  return [...map.values()].filter(q=>q.count>=2).sort((a,b)=>b.count-a.count).slice(0,6);
+}
+let quickList=[];
+function renderQuick(){
+  quickList=quickItems(); $('quickBox').hidden=!quickList.length || !!S.editId;
+  $('quick').innerHTML=quickList.map((q,i)=>`<button type="button" class="qbtn" data-q="${i}"><span>${esc(q.label)}</span><b class="num">${fmt(q.amount)}</b></button>`).join('');
+}
+let toastTimer=null, undoFn=null;
+function toast(msg,undo){
+  $('toastMsg').textContent=msg; undoFn=undo||null; $('toastUndo').hidden=!undo; $('toast').hidden=false;
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>{ $('toast').hidden=true; undoFn=null; },6000);
+}
+$('toastUndo').addEventListener('click',()=>{ const f=undoFn; undoFn=null; $('toast').hidden=true; if(f) f(); });
+$('quick').addEventListener('click', async e=>{
+  const b=e.target.closest('.qbtn'); if(!b) return; const q=quickList[+b.dataset.q]; if(!q) return;
+  if(S.example) leaveExample();
+  const t={ id:'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), date:todayStr(), kind:'exp', cat:q.cat, amount:q.amount, need:q.need, note:q.label===catName(q.cat)?'':q.label, createdAt:new Date().toISOString() };
+  try{ await saveTx(t); }catch(x){ setStatus('บันทึกไม่สำเร็จ พื้นที่ในเครื่องอาจเต็ม'); return; }
+  S.ym=ymOf(t.date); render();
+  toast(`บันทึก ${q.label} ${fmt(q.amount)} แล้ว`, async ()=>{ try{ await deleteTx(t.id); setStatus('ยกเลิกรายการแล้ว'); }catch(x){} });
+});
+
+/* ---------- recurring panel ---------- */
+let pendingRec=null;
+function renderRecurring(){
+  const el=$('rlist');
+  if(S.example){ el.innerHTML='<li class="empty" style="display:block">ติ๊ก “ทำซ้ำทุกเดือน” ตอนบันทึก เช่น เงินเดือน ค่าห้อง ค่าเน็ต แล้วแอปจะลงรายการให้เองทุกเดือน</li>'; return; }
+  if(!S.recurring.length){ el.innerHTML='<li class="empty" style="display:block">ยังไม่มีรายการประจำ ติ๊ก “ทำซ้ำทุกเดือน” ตอนบันทึก เช่น เงินเดือน ค่าห้อง ค่าเน็ต แล้วแอปจะลงรายการให้เองทุกเดือน</li>'; return; }
+  el.innerHTML=S.recurring.map(r=>`<li><div class="meta" style="min-width:0"><div style="font-weight:500">${esc(r.note||catName(r.cat))}</div><div class="small muted">${esc(catName(r.cat))} · ทุกวันที่ ${r.day}${r.day>28?' (หรือวันสุดท้ายของเดือน)':''}</div></div>
+    <span class="num ${r.kind==='inc'?'pos':''}" style="font-weight:600">${r.kind==='inc'?'+':'−'}${fmt(r.amount)}</span>
+    <button class="del${pendingRec===r.id?' confirm':''}" type="button" data-rec="${esc(r.id)}">${pendingRec===r.id?'ยืนยันหยุด':'หยุด'}</button></li>`).join('')
+    + '<li style="display:block;border:0"><span class="small muted">กด “หยุด” แล้วรายการเดือนต่อไปจะไม่ถูกลงอีก ส่วนรายการที่ลงไปแล้วยังอยู่</span></li>';
+}
+$('rlist').addEventListener('click',e=>{
+  const b=e.target.closest('[data-rec]'); if(!b) return; const id=b.dataset.rec;
+  if(pendingRec!==id){ pendingRec=id; renderRecurring(); setTimeout(()=>{ if(pendingRec===id){ pendingRec=null; renderRecurring(); } },4000); return; }
+  pendingRec=null; const before=S.recurring; S.recurring=S.recurring.filter(r=>r.id!==id);
+  if(!lsSave()){ S.recurring=before; setStatus('บันทึกไม่สำเร็จ พื้นที่ในเครื่องอาจเต็ม'); } else setStatus('หยุดรายการประจำแล้ว');
+  render();
+});
+
+/* ---------- edit ---------- */
+function setFormMode(){
+  const e=!!S.editId;
+  $('h-add').textContent=e?'แก้ไขรายการ':'บันทึกรายการ';
+  $('saveBtn').textContent=e?'บันทึกการแก้ไข':'บันทึก';
+  $('cancelEdit').hidden=!e; $('repeatRow').hidden=e; $('entry').classList.toggle('editing-form',e);
+  $('quickBox').hidden=e || !quickList.length;
+}
+function startEdit(id){
+  const t=S.tx.find(x=>x.id===id); if(!t) return;
+  S.editId=id;
+  $(t.kind==='inc'?'kInc':'kExp').checked=true; fillCats();
+  $('cat').value=t.cat; if($('cat').value!==t.cat) $('cat').selectedIndex=0;
+  $(t.need?'nYes':'nNo').checked=true;
+  $('amt').value=t.amount; $('date').value=t.date; $('note').value=t.note||''; $('repeat').checked=false; $('formErr').hidden=true;
+  setFormMode();
+  $('entry').scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>$('amt').focus({preventScroll:true}),300);
+}
+function cancelEdit(){ S.editId=null; $('amt').value=''; $('note').value=''; $('date').value=todayStr(); $('formErr').hidden=true; setFormMode(); updateRepeatHint(); }
+$('cancelEdit').addEventListener('click',cancelEdit);
+$('days').addEventListener('click',e=>{ const b=e.target.closest('[data-edit]'); if(b) startEdit(b.dataset.edit); });
+function updateRepeatHint(){ const d=$('date').value; $('repeatHint').textContent=d?`(ทุกวันที่ ${+d.slice(8,10)})`:''; }
+$('date').addEventListener('input',updateRepeatHint);
 
 /* ---------- form ---------- */
 function fillCats(){
@@ -513,6 +637,7 @@ document.querySelectorAll('input[name=kind]').forEach(r=>r.addEventListener('cha
 $('cat').addEventListener('change',syncNeed);
 $('date').value=todayStr();
 fillCats();
+updateRepeatHint();
 
 $('entry').addEventListener('submit', async e=>{
   e.preventDefault();
@@ -521,9 +646,26 @@ $('entry').addEventListener('submit', async e=>{
   if(!date){ err.textContent='เลือกวันที่ของรายการ'; err.hidden=false; return; }
   err.hidden=true;
   const kind=document.querySelector('input[name=kind]:checked').value;
-  const t={ id:'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), date, kind, cat:$('cat').value, amount,
-    need: kind==='inc'?true:$('nYes').checked, note:$('note').value.trim(), createdAt:new Date().toISOString() };
+  const fields={ date, kind, cat:$('cat').value, amount, need: kind==='inc'?true:$('nYes').checked, note:$('note').value.trim() };
+  if(S.editId){
+    const i=S.tx.findIndex(x=>x.id===S.editId);
+    if(i<0){ cancelEdit(); err.textContent='ไม่พบรายการนี้แล้ว อาจถูกลบไปก่อนหน้า'; err.hidden=false; return; }
+    const before=S.tx[i]; S.tx[i]={...before,...fields};
+    if(!lsSave()){ S.tx[i]=before; err.textContent='บันทึกไม่สำเร็จ พื้นที่ในเครื่องอาจเต็ม'; err.hidden=false; return; }
+    S.editId=null; S.ym=ymOf(date); $('amt').value=''; $('note').value=''; $('date').value=todayStr(); setFormMode(); render();
+    setStatus('แก้ไขรายการแล้ว'); toast('แก้ไขรายการแล้ว'); return;
+  }
   if(S.example){ leaveExample(); }
+  if($('repeat').checked){
+    const r={ id:Date.now().toString(36)+Math.random().toString(36).slice(2,5), start:ymOf(date), day:+date.slice(8,10), ...fields };
+    delete r.date; S.recurring=[...S.recurring,r];
+    if(!lsSave()){ S.recurring=S.recurring.filter(x=>x.id!==r.id); err.textContent='บันทึกไม่สำเร็จ พื้นที่ในเครื่องอาจเต็ม'; err.hidden=false; return; }
+    const n=applyRecurring();
+    S.ym=ymOf(date); $('amt').value=''; $('note').value=''; $('repeat').checked=false; render();
+    setStatus(n?`ตั้งเป็นรายการประจำแล้ว ลงให้ ${n} รายการ`:`ตั้งเป็นรายการประจำแล้ว จะลงให้อัตโนมัติทุกวันที่ ${r.day}`);
+    toast(`ตั้ง “${r.note||catName(r.cat)}” เป็นรายการประจำทุกเดือนแล้ว`); return;
+  }
+  const t={ id:'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), ...fields, createdAt:new Date().toISOString() };
   try{ await saveTx(t); }catch(x){ err.textContent='บันทึกไม่สำเร็จ พื้นที่ในเครื่องอาจเต็ม ลองสำรองข้อมูลแล้วลบรายการเก่าบางส่วน'; err.hidden=false; return; }
   S.ym=ymOf(date); $('amt').value=''; $('note').value=''; render(); $('amt').focus();
   setStatus('บันทึกแล้ว');
@@ -534,6 +676,7 @@ $('days').addEventListener('click', async e=>{
   const id=b.dataset.id;
   if(pendingDel!==id){ pendingDel=id; render(); setTimeout(()=>{ if(pendingDel===id){ pendingDel=null; render(); } },4000); return; }
   pendingDel=null;
+  if(S.editId===id) cancelEdit();
   try{ await deleteTx(id); setStatus('ลบรายการแล้ว'); }catch(x){ setStatus('ลบไม่สำเร็จ พื้นที่ในเครื่องอาจเต็ม'); }
   render();
 });
@@ -551,7 +694,7 @@ $('clearEx').addEventListener('click',()=>{ leaveExample(); lsSave(); render(); 
 $('exportBtn').addEventListener('click',exportData);
 $('importFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) importData(f); e.target.value=''; });
 let lastDay=todayStr();
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState!=='visible') return; const t=todayStr(); if(t===lastDay) return;
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState!=='visible') return; const n=applyRecurring(); if(n){ setStatus(`ลงรายการประจำให้อัตโนมัติ ${n} รายการ`); render(); } const t=todayStr(); if(t===lastDay) return;
   if($('date').value===lastDay) $('date').value=t; if(S.ym===ymOf(lastDay)) S.ym=ymOf(t); lastDay=t; render(); });
 let rt; window.addEventListener('resize',()=>{ clearTimeout(rt); rt=setTimeout(renderTrend,150); });
 
