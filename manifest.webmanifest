@@ -1,0 +1,17 @@
+{
+  "name": "บัญชีเงินของฉัน",
+  "short_name": "บัญชีเงิน",
+  "description": "บันทึกรายรับรายจ่าย แยกสิ่งจำเป็น/ไม่จำเป็น กราฟ งบประมาณ และแผน 50/30/20",
+  "lang": "th",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f6f3",
+  "theme_color": "#0f6b5c",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
