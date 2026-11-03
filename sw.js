@@ -1,5 +1,5 @@
 // Offline cache: app files are cached on install; fonts are cached the first time they load.
-const VERSION = 'ledger-v2';
+const VERSION = 'ledger-v3';
 const APP = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
