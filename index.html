@@ -317,14 +317,18 @@ function init(){
   render();
   if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
 }
-async function saveTx(t){ S.tx.push(t); lsSave(); render(); }
-async function deleteTx(id){ S.tx=S.tx.filter(t=>t.id!==id); lsSave(); render(); }
+async function saveTx(t){ S.tx.push(t); if(!lsSave()){ S.tx.pop(); throw {code:'quota_exceeded'}; } render(); }
+async function deleteTx(id){ const before=S.tx; S.tx=S.tx.filter(t=>t.id!==id); if(!lsSave()){ S.tx=before; throw {code:'save_failed'}; } render(); }
 function saveProfile(){ lsSave(); }
 
 /* ---------- backup ---------- */
-function exportData(){
+async function exportData(){
   const blob=new Blob([JSON.stringify({app:'ledger-th',version:1,exportedAt:new Date().toISOString(),tx:S.tx,budgets:S.budgets,goalPct:S.goalPct},null,1)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`บัญชีเงิน-${todayStr()}.json`;
+  const name=`ledger-backup-${todayStr()}.json`;
+  try{ const f=new File([blob],name,{type:'application/json'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})&&/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)){ await navigator.share({files:[f],title:'สำรองข้อมูลบัญชีเงิน'}); setStatus('สำรองข้อมูลแล้ว เก็บไฟล์ไว้ในที่ปลอดภัย'); return; }
+  }catch(e){ if(e&&e.name==='AbortError') return; }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
   document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
   setStatus('สำรองข้อมูลแล้ว เก็บไฟล์ไว้ในที่ปลอดภัย');
 }
@@ -334,7 +338,11 @@ function importData(file){
       const d=JSON.parse(r.result);
       if(!d || !Array.isArray(d.tx)) throw 0;
       const ok=d.tx.filter(t=>t&&t.id&&/^\d{4}-\d{2}-\d{2}$/.test(t.date)&&(t.kind==='inc'||t.kind==='exp')&&+t.amount>0);
-      S.example=false; S.tx=ok.map(t=>({...t,amount:+t.amount})); S.budgets=d.budgets&&typeof d.budgets==='object'?d.budgets:{}; S.goalPct=+d.goalPct||20;
+      const cats=new Set([...EXP,...INC].map(c=>c.id));
+      S.example=false;
+      S.tx=ok.map(t=>({id:String(t.id),date:t.date,kind:t.kind,cat:cats.has(t.cat)?t.cat:(t.kind==='inc'?'gift':'other'),amount:Math.round(+t.amount*100)/100,need:t.kind==='inc'?true:!!t.need,note:String(t.note||'').slice(0,80),createdAt:t.createdAt||''}));
+      S.budgets={}; if(d.budgets&&typeof d.budgets==='object') for(const c of EXP){ const v=+d.budgets[c.id]; if(v>0) S.budgets[c.id]=v; }
+      S.goalPct=Math.min(90,Math.max(0,+d.goalPct||20));
       lsSave(); render(); setStatus(`กู้คืนแล้ว ${ok.length} รายการ`);
     }catch(e){ setStatus('ไฟล์นี้ไม่ใช่ไฟล์สำรองของแอปนี้ ลองเลือกไฟล์ .json ที่ได้จากปุ่ม “สำรองข้อมูล”'); } };
   r.readAsText(file);
@@ -343,7 +351,7 @@ function importData(file){
 /* ---------- calculations ---------- */
 function monthStats(ym){
   const list=S.tx.filter(t=>ymOf(t.date)===ym);
-  let inc=0,exp=0,need=0,want=0; const byCat={};
+  let inc=0,exp=0,need=0,want=0; const byCat=Object.create(null);
   for(const t of list){
     if(t.kind==='inc') inc+=t.amount;
     else { exp+=t.amount; if(t.need) need+=t.amount; else want+=t.amount;
@@ -356,7 +364,8 @@ function monthStats(ym){
 function render(){
   $('exBanner').hidden=!S.example;
   $('monthLbl').textContent=ymLabel(S.ym);
-  $('nextM').disabled = S.ym>=ymOf(todayStr());
+  const lastYm=S.tx.reduce((a,t)=>ymOf(t.date)>a?ymOf(t.date):a, ymOf(todayStr()));
+  $('nextM').disabled = S.ym>=lastYm;
   const m=monthStats(S.ym), prev=monthStats(shiftYm(S.ym,-1));
   $('tInc').textContent=fmt(m.inc);
   $('tExp').textContent=fmt(m.exp);
@@ -417,7 +426,7 @@ function renderInsight(m){
   el.innerHTML=t;
 }
 
-function pill(ratio){ return ratio>1?'<span class="pill over">✕ เกิน</span>':ratio>=.8?'<span class="pill warn">! ใกล้เต็ม</span>':'<span class="pill ok">✓ อยู่ในแผน</span>'; }
+function pill(ratio){ return ratio>1.0001?'<span class="pill over">✕ เกิน</span>':ratio>=.9999?'<span class="pill ok">✓ ใช้ครบงบ</span>':ratio>=.8?'<span class="pill warn">! ใกล้เต็ม</span>':'<span class="pill ok">✓ อยู่ในแผน</span>'; }
 function renderRule(m){
   const el=$('rule');
   if(!m.inc){ el.innerHTML='<div class="empty">บันทึกรายรับของเดือนนี้ก่อน แล้วระบบจะแบ่งให้ว่าควรใช้กับสิ่งจำเป็น สิ่งที่อยากได้ และเก็บออมเท่าไร</div>'; return; }
@@ -454,9 +463,12 @@ function renderBudget(m){
       <div class="track" title="จำเป็น ${fmt(sp.need)} · ไม่จำเป็น ${fmt(sp.want)}"><div class="seg" style="left:0;width:${nW}%;background:var(--need)"></div><div class="seg" style="left:calc(${nW}% + ${gap}px);width:${wW}%;background:var(--want)"></div></div></li>`;
   }).join('');
   if(S.editing) $('blist').querySelectorAll('input').forEach(inp=>inp.addEventListener('input',()=>{
-    if(S.example){ const keep={...S.budgets}; leaveExample(); S.budgets=keep; }
+    const wasExample=S.example;
+    if(wasExample){ const keep={...S.budgets}; leaveExample(); S.budgets=keep; }
     const v=Math.max(0,+inp.value||0); if(v) S.budgets[inp.dataset.cat]=v; else delete S.budgets[inp.dataset.cat];
-    saveProfile(); const save=inp.id, pos=inp.selectionStart; renderAllButBudgetInputs();
+    saveProfile();
+    if(wasExample){ const id=inp.id; render(); const again=$(id); if(again){ again.focus(); const n=again.value.length; try{again.setSelectionRange(n,n)}catch(e){} } }
+    else renderAllButBudgetInputs();
   }));
 }
 function renderAllButBudgetInputs(){
@@ -511,7 +523,7 @@ $('entry').addEventListener('submit', async e=>{
   const t={ id:'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), date, kind, cat:$('cat').value, amount,
     need: kind==='inc'?true:$('nYes').checked, note:$('note').value.trim(), createdAt:new Date().toISOString() };
   if(S.example){ leaveExample(); }
-  try{ await saveTx(t); }catch(x){ err.textContent=x&&x.code==='quota_exceeded'?'พื้นที่เก็บข้อมูลเต็ม ลบรายการเก่าบางส่วนก่อน':'บันทึกไม่สำเร็จ ลองอีกครั้ง'; err.hidden=false; return; }
+  try{ await saveTx(t); }catch(x){ err.textContent='บันทึกไม่สำเร็จ พื้นที่ในเครื่องอาจเต็ม ลองสำรองข้อมูลแล้วลบรายการเก่าบางส่วน'; err.hidden=false; return; }
   S.ym=ymOf(date); $('amt').value=''; $('note').value=''; render(); $('amt').focus();
   setStatus('บันทึกแล้ว');
 });
@@ -521,7 +533,7 @@ $('days').addEventListener('click', async e=>{
   const id=b.dataset.id;
   if(pendingDel!==id){ pendingDel=id; render(); setTimeout(()=>{ if(pendingDel===id){ pendingDel=null; render(); } },4000); return; }
   pendingDel=null;
-  try{ await deleteTx(id); setStatus('ลบรายการแล้ว'); }catch(x){ setStatus('ลบไม่สำเร็จ ลองอีกครั้ง'); }
+  try{ await deleteTx(id); setStatus('ลบรายการแล้ว'); }catch(x){ setStatus('ลบไม่สำเร็จ พื้นที่ในเครื่องอาจเต็ม'); }
   render();
 });
 document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{
@@ -537,6 +549,9 @@ $('goalPct').addEventListener('input',()=>{
 $('clearEx').addEventListener('click',()=>{ leaveExample(); lsSave(); render(); });
 $('exportBtn').addEventListener('click',exportData);
 $('importFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) importData(f); e.target.value=''; });
+let lastDay=todayStr();
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState!=='visible') return; const t=todayStr(); if(t===lastDay) return;
+  if($('date').value===lastDay) $('date').value=t; if(S.ym===ymOf(lastDay)) S.ym=ymOf(t); lastDay=t; render(); });
 let rt; window.addEventListener('resize',()=>{ clearTimeout(rt); rt=setTimeout(renderTrend,150); });
 
 init();

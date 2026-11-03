@@ -1,5 +1,5 @@
 // Offline cache: app files are cached on install; fonts are cached the first time they load.
-const VERSION = 'ledger-v1';
+const VERSION = 'ledger-v2';
 const APP = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -15,8 +15,10 @@ self.addEventListener('fetch', e => {
   const isFont = url.host === 'fonts.googleapis.com' || url.host === 'fonts.gstatic.com';
   if (req.mode === 'navigate') {
     // Try the network first so updates arrive; fall back to the cached app offline.
-    e.respondWith(fetch(req).then(r => { const copy = r.clone(); caches.open(VERSION).then(c => c.put('index.html', copy)); return r; })
-      .catch(() => caches.match('index.html')));
+    // On a weak signal, show the cached app after 3 seconds instead of waiting.
+    const net = fetch(req).then(r => { if (r.ok) { const copy = r.clone(); caches.open(VERSION).then(c => c.put('index.html', copy)); } return r; });
+    const slow = new Promise(res => setTimeout(() => caches.match('index.html').then(hit => hit && res(hit)), 3000));
+    e.respondWith(Promise.race([net, slow]).catch(() => caches.match('index.html')));
     return;
   }
   if (url.origin === location.origin || isFont) {
